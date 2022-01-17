@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
 import { useDispatch, useSelector } from "react-redux";
 import { connect } from "./redux/blockchain/blockchainActions";
@@ -13,6 +13,8 @@ function App() {
   const blockchain = useSelector((state) => state.blockchain);
   const data = useSelector((state) => state.data);
   const [loading, setLoading] = useState(false);
+  const [eid, setEid] = useState(0);
+  const [name, setName] = useState("");
 
   console.log(data);
 
@@ -54,8 +56,27 @@ function App() {
       });
   };
 
+  const fight = (_account, _id) => {
+    setLoading(true);
+    blockchain.godToken.methods
+      .fight(_id, eid)
+      .send({
+        from: _account,
+      })
+      .once("error", (err) => {
+        setLoading(false);
+        console.log(err);
+      })
+      .then((receipt) => {
+        setLoading(false);
+        console.log(receipt);
+        dispatch(fetchData(blockchain.account));
+        alert("The Attack is complete. Check the updated stats in your NFT.");
+      });
+  };
+
   useEffect(() => {
-    if (blockchain.account != "" && blockchain.godToken != null) {
+    if (blockchain.account !== "" && blockchain.godToken !== null) {
       dispatch(fetchData(blockchain.account));
     }
   }, [blockchain.godToken, blockchain.account]);
@@ -64,10 +85,12 @@ function App() {
     <s.Screen image={_color}>
       {blockchain.account === "" || blockchain.godToken === null ? (
         <s.Container flex={1} ai={"center"} jc={"center"}>
-          <s.TextTitle>Connect to the game</s.TextTitle>
+          <div className="h1 fw-bold text-white card p-3 rounded-3 bg-dark shadow">
+            🦄 Enter the Game 🦄
+          </div>
           <s.SpacerSmall />
           <button
-            className="btn btn-primary"
+            className="btn btn-primary fw-bold"
             onClick={(e) => {
               e.preventDefault();
               dispatch(connect());
@@ -76,7 +99,7 @@ function App() {
             CONNECT
           </button>
           <s.SpacerXSmall />
-          {blockchain.errorMsg != "" ? <div>{blockchain.errorMsg}</div> : null}
+          {blockchain.errorMsg !== "" ? <div>{blockchain.errorMsg}</div> : null}
         </s.Container>
       ) : (
         <div className="p-3">
@@ -86,12 +109,18 @@ function App() {
               <span className="fw-bold h1 d-block">⚡ NFT God Wars ⚡</span>
             </div>
 
+            <input
+              type="text"
+              className="bg-dark w-100 p-3 text-white form-control rounded"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
             <button
-              className="btn btn-warning fw-bold btn-lg"
+              className="btn btn-warning fw-bold w-100 btn-lg"
               disabled={loading ? 1 : 0}
               onClick={(e) => {
                 e.preventDefault();
-                mintNFT(blockchain.account, "Unknown");
+                mintNFT(blockchain.account, name);
               }}
             >
               Create a new NFT God Card ➕
@@ -100,14 +129,50 @@ function App() {
 
           <div className="container">
             <section className="mt-5 align-items-center justify-content-center row">
-              {data.allGods.map((item, index) => {
+              {data.allOwnerGods.map((item, index) => {
                 return (
-                  <div className="m-3 col-md-3">
-                    <div className="card card-body bg-dark shadow" key={index}>
-                      <div className="shadow border-secondary  justify-content-center d-flex align-items-center">
+                  <div
+                    className="col-xl-5 col-12 card m-2 bg-dark shadow"
+                    key={index}
+                  >
+                    <div className="card-body d-md-flex">
+                      <div className="  justify-content-center bg-secondary flex-column d-flex align-items-center">
                         <GodRenderer god={item} />
+                        <div className="d-flex align-items-center justify-content-center flex-column mt-3">
+                          <button
+                            className="btn btn-primary btn-sm fw-bold w-100"
+                            disabled={loading ? 1 : 0}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              levelUpGod(blockchain.account, item.id);
+                            }}
+                          >
+                            Level Up ⚡
+                          </button>
+
+                          <div className="input-group ">
+                            <input
+                              placeholder="Opp ID"
+                              type="number"
+                              className="form-control  rounded"
+                              onChange={(e) => setEid(e.target.value)}
+                            />
+                            <div className="input-group-append">
+                              <button
+                                className="btn btn-danger text-start fw-bold"
+                                disabled={loading ? 1 : 0}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  fight(blockchain.account, item.id);
+                                }}
+                              >
+                                Fight⚡
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <table class="table table-striped table-dark rounded-3 mt-3">
+                      <table className="table table-striped table-dark rounded-3 mt-3 mx-3">
                         <thead>
                           <tr>
                             <th className="text-secondary" scope="col">
@@ -127,7 +192,7 @@ function App() {
                               1
                             </th>
                             <td className="text-secondary">ID No.</td>
-                            <td> {item.dna}</td>
+                            <td> {item.id}</td>
                           </tr>
                           <tr>
                             <th className="text-secondary" scope="row">
@@ -180,18 +245,6 @@ function App() {
                           </tr>
                         </tbody>
                       </table>
-                      <div className="d-flex align-items-center justify-content-center flex-column">
-                        <button
-                          className="btn btn-light fw-bold w-100"
-                          disabled={loading ? 1 : 0}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            levelUpGod(blockchain.account, item.id);
-                          }}
-                        >
-                          Level Up ⚡
-                        </button>
-                      </div>
                     </div>
                   </div>
                 );
@@ -201,7 +254,7 @@ function App() {
         </div>
       )}
 
-      <div className="bg-dark h5 text-secondary py-5 text-center ">
+      <div className="badge text-secondary py-4 text-center ">
         Built by{" "}
         <span className="fw-bold text-white d-block">
           Fabian Ferno & Surbhit Agrawal
